@@ -24,7 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'rm1qvx2t_(b=vjo50er#lxtl8hfyki=fp&^7mq3%l_g47xznws'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ['sissa-piloto-python.herokuapp.com']
 
