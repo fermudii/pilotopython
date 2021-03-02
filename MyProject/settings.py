@@ -26,7 +26,7 @@ SECRET_KEY = 'rm1qvx2t_(b=vjo50er#lxtl8hfyki=fp&^7mq3%l_g47xznws'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['sissa-piloto-python.herokuapp.com']
+ALLOWED_HOSTS = ['localhost','sissa-piloto-python.herokuapp.com']
 
 
 # Application definition
@@ -82,6 +82,9 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'piloto',
+'OPTIONS': {
+            'init_command': 'SET innodb_strict_mode=1',
+        },
         'USER': 'admin_piloto',
         'PASSWORD': '$21ePaa5',
         'HOST': '205.186.160.187',
