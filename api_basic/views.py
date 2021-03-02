@@ -32,8 +32,6 @@ import sys
 import os
 import time
 from docx2pdf import convert
-from tkinter import Tk  # from tkinter import Tk for Python 3.x
-from tkinter.filedialog import askopenfilename
 # Create your views here.
 
 class ArticleModelViewSet(viewsets.ModelViewSet):
