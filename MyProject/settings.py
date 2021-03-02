@@ -141,5 +141,5 @@ STATICFILES_STORAGE = 'whitenoise.django.GzipManifestStaticFilesStorage'
 
 import dj_database_url
 DATABASES['default'] = dj_database_url.config(
-    default='mysql://root:<$21ePaa5>@localhost:3306/<piloto>',
+    default='mysql://admin_piloto:$21ePaa5@205.186.160.187:3306/piloto',
 )
