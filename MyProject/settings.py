@@ -82,7 +82,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'piloto',
-'OPTIONS': {
+        'OPTIONS': {
             'init_command': 'SET innodb_strict_mode=1',
         },
         'USER': 'admin_piloto',
@@ -142,7 +142,3 @@ STATICFILES_DIRS = (
 STATICFILES_STORAGE = 'whitenoise.django.GzipManifestStaticFilesStorage'
 
 
-import dj_database_url
-DATABASES['default'] = dj_database_url.config(
-    default='mysql://admin_piloto:$21ePaa5@205.186.160.187:3306/piloto',
-)
