@@ -26,7 +26,7 @@ SECRET_KEY = 'rm1qvx2t_(b=vjo50er#lxtl8hfyki=fp&^7mq3%l_g47xznws'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost','sissa-piloto-python.herokuapp.com']
+ALLOWED_HOSTS = ['piloto-python.herokuapp.com']
 
 
 # Application definition
