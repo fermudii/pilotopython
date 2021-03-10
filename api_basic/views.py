@@ -3,7 +3,7 @@ from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.parsers import JSONParser
 from .models import Article, Piloto
-from .serializers import ArticleSerializer, PilotoSerializer
+from .serializers import ArticleSerializer, PilotoSerializer, ReportSerializer, CountSerializer, FinalExerciseSerializer
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
@@ -530,6 +530,11 @@ class FilesAPIView(APIView):
 
         # finalx_df
         counts_df
+        #TODO SAVE COUNTS_DF TO DB
+        print(course_df)
+
+
+
 
         # In[66]:
 
@@ -915,6 +920,51 @@ class FilesAPIView(APIView):
         # ## Final Report Creation
 
         # In[90]:
+
+        print(finalx_df)
+        print(mse_report[0])
+
+
+        #Cargando Final Exercise a DB
+
+
+        for index, row in finalx_df.iterrows():
+
+            fullname = row['participant']
+
+            fulldate = report_df.loc[report_df['fullname'] == fullname]['date'].item()
+
+
+
+            finalExercise = {
+                "student": row['participant'],
+                "company": report_df.loc[report_df['fullname'] == fullname]['company'].item(),
+                "program": report_df.loc[report_df['fullname'] == fullname]['program'].item(),
+                "fulldate": fulldate,
+                "carId": row['car_ID'],
+                "stress": row['stress'],
+                "revSlalom": str(row['rev_slalom']),
+                "revPc": row['rev_%'],
+                "slalom": row['slalom'],
+                "lnCh": row['LnCh'],
+                "cones": row['cones'],
+                "gates": row['gates'],
+                "fTime": str(row['f_time']),
+                "finalResult": row['final_result']
+            }
+            print(finalExercise)
+
+
+            serializer = FinalExerciseSerializer(data=finalExercise)
+            if serializer.is_valid():
+                serializer.save()
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
+
         i = 0
         for index, row in report_df.iterrows():
             if i > len(data):
@@ -926,11 +976,7 @@ class FilesAPIView(APIView):
                 company = row['company']
                 program = row['program']
 
-                # Date language Format
-                if raw_values.loc[0, 'Country'] == 'MX':
-                    fulldate = row['date'].strftime("%d / %m / %Y")
-                else:
-                    fulldate = row['date'].strftime("%B %d %Y")
+                fulldate = row['date']
 
                 vehicle = row['vehicle']
                 snor = row['s_no_runs']
@@ -944,7 +990,7 @@ class FilesAPIView(APIView):
                 laovc = int(row['avg_v_control_lc'])  # Missing Variable
                 lfpl = int(row['lnch_max'])
 
-                piloto = {
+                report = {
                     "student": student,
                     "company": company,
                     "program": program,
@@ -962,8 +1008,34 @@ class FilesAPIView(APIView):
                     "lfpl": lfpl
                 }
 
+                count ={
+                    "student": student,
+                    "company": company,
+                    "program": program,
+                    "fulldate": fulldate,
+                    "countLnCh": counts_df.loc[student]['Count']['Lane Change'],
+                    "countSlalom": counts_df.loc[student]['Count']['Slalom'],
+                    "passedLnCh": counts_df.loc[student]['Passed']['Lane Change'],
+                    "passedSlalom": counts_df.loc[student]['Passed']['Slalom'],
+                    "avScoreLnCh": counts_df.loc[student]['Av Score']['Lane Change'],
+                    "avScoreSlalom": counts_df.loc[student]['Av Score']['Slalom'],
+                    "startScoreLnCh": counts_df.loc[student]['Start Score']['Lane Change'],
+                    "startScoreSlalom": counts_df.loc[student]['Start Score']['Slalom'],
+                    "endScoreLnCh": counts_df.loc[student]['End Score']['Lane Change'],
+                    "endScoreSlalom": counts_df.loc[student]['End Score']['Slalom'],
+                    "lnChPassed": counts_df.loc[student]['LnCh Passed'],
+                    "slalomPassed": counts_df.loc[student]['Slalom Passed']
 
-                serializer = PilotoSerializer(data=piloto)
+                }
+
+                serializer0 = CountSerializer(data=count)
+                if serializer0.is_valid():
+                    serializer0.save()
+                else:
+                    return Response(serializer0.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+                serializer = ReportSerializer(data=report)
                 if serializer.is_valid():
                     serializer.save()
                 else:
