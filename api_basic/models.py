@@ -94,6 +94,38 @@ class FinalExercise(models.Model):
     def __str__(self):
         return self.student
 
+class SlalomAvg(models.Model):
+    student = models.CharField(max_length=100)
+    company = models.CharField(max_length=100)
+    program = models.CharField(max_length=100)
+    fulldate = models.DateTimeField()
+    vehiclePcAvgLnCh = models.FloatField()
+    vehiclePcAvgSlalom = models.FloatField()
+
+    def __str__(self):
+        return self.student
+
+class Comments(models.Model):
+    student = models.CharField(max_length=100)
+    company = models.CharField(max_length=100)
+    program = models.CharField(max_length=100)
+    fulldate = models.DateTimeField()
+    comment = models.CharField(max_length=10000)
+
+    def __str__(self):
+        return self.student
+
+class Course(models.Model):
+    student = models.CharField(max_length=100)
+    company = models.CharField(max_length=100)
+    program = models.CharField(max_length=100)
+    fulldate = models.DateTimeField()
+    pcExercise = models.FloatField()
+    pcVehicle = models.FloatField()
+
+
+
+
 
 
 

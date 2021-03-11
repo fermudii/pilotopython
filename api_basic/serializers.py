@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Article, Piloto, Report, Count, FinalExercise
+from .models import Article, Piloto, Report, Count, FinalExercise, Comments, SlalomAvg, Course
 
 class ArticleSerializer(serializers.ModelSerializer):
     class Meta:
@@ -24,4 +24,19 @@ class CountSerializer(serializers.ModelSerializer):
 class FinalExerciseSerializer(serializers.ModelSerializer):
     class Meta:
         model = FinalExercise
+        fields = '__all__'
+
+class SlalomAvgSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SlalomAvg
+        fields = '__all__'
+
+class CommentsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Comments
+        fields = '__all__'
+
+class CourseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Course
         fields = '__all__'

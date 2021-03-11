@@ -3,7 +3,7 @@ from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.parsers import JSONParser
 from .models import Article, Piloto
-from .serializers import ArticleSerializer, PilotoSerializer, ReportSerializer, CountSerializer, FinalExerciseSerializer
+from .serializers import ArticleSerializer, PilotoSerializer, ReportSerializer, CountSerializer, FinalExerciseSerializer, CommentsSerializer, SlalomAvgSerializer, CourseSerializer
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
@@ -33,73 +33,6 @@ import os
 import time
 from docx2pdf import convert
 # Create your views here.
-
-class ArticleModelViewSet(viewsets.ModelViewSet):
-    serializer_class = ArticleSerializer
-    queryset = Article.objects.all()
-
-class ArticleGenericViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
-                            mixins.UpdateModelMixin, mixins.RetrieveModelMixin, mixins.DestroyModelMixin):
-    serializer_class = ArticleSerializer
-    queryset = Article.objects.all()
-
-
-
-class ArticleViewSet(viewsets.ViewSet):
-    def list(self, request):
-        articles = Article.objects.all()
-        serializer = ArticleSerializer(articles, many=True)
-        return Response(serializer.data)
-
-    def create(self, request):
-        serializer = ArticleSerializer(data=request.data)
-
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def retrieve(self, request, pk=None):
-        queryset = Article.objects.all()
-        article = get_object_or_404(queryset, pk=pk)
-        serializer = ArticleSerializer(article)
-        return Response(serializer.data)
-
-    def update(self, request, pk=None):
-        article = Article.objects.get(pk=pk)
-        serializer = ArticleSerializer(article, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class GenericAPIView(generics.GenericAPIView, mixins.ListModelMixin, mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins.RetrieveModelMixin,
-                     mixins.DestroyModelMixin):
-    serializer_class = ArticleSerializer
-    queryset = Article.objects.all()
-    lookup_field = 'id'
-    #authentication_classes = [SessionAuthentication, BasicAuthentication]
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request, id = None):
-
-        if id:
-            return self.retrieve(request)
-        else:
-            return self.list(request)
-
-    def post(self, request):
-        return self.create(request)
-
-    def put(self, request, id = None):
-        return self.update(request, id)
-
-    def delete(self, request, id = None):
-        return self.destroy(request, id)
-
-
 
 
 class FilesAPIView(APIView):
@@ -148,9 +81,7 @@ class FilesAPIView(APIView):
         raw_runs = pd.read_excel(data_file, sheet_name=("Skill Building"))  # bSkill building
         raw_values = pd.read_excel(data_file, sheet_name=("Course Values"), skiprows=1)
         finalx_df = pd.read_excel(data_file, sheet_name=("Final Exercise"))
-        comments_x = pd.read_excel(data_file,
-                                   sheet_name=(
-                                       'Instructor Comments')).dropna()  # .set_index('participant', inplace=True)
+        comments_x = pd.read_excel(data_file, sheet_name=('Instructor Comments')).dropna()  # .set_index('participant', inplace=True)
 
         # In[7]:
 
@@ -164,6 +95,7 @@ class FilesAPIView(APIView):
         # In[9]:
 
         comments = pd.Series(comments_x['comment']).astype(str)
+
 
         # In[10]:
 
@@ -531,8 +463,6 @@ class FilesAPIView(APIView):
         # finalx_df
         counts_df
         #TODO SAVE COUNTS_DF TO DB
-        print(course_df)
-
 
 
 
@@ -921,9 +851,40 @@ class FilesAPIView(APIView):
 
         # In[90]:
 
-        print(finalx_df)
-        print(mse_report[0])
+        print(comments)
 
+        #Cargando % de exercise and vehicle
+
+        for index, row in course_df.iterrows():
+
+
+
+            fullname = row['participant']
+
+            print(fullname)
+
+            if report_df.loc[report_df['fullname'] == fullname]['date'].empty:
+                continue
+            else:
+                fulldate = report_df.loc[report_df['fullname'] == fullname]['date'].item()
+
+
+
+
+            courseObject = {
+                "student": row['participant'],
+                "company": report_df.loc[report_df['fullname'] == fullname]['company'].item(),
+                "program": report_df.loc[report_df['fullname'] == fullname]['program'].item(),
+                "fulldate": fulldate,
+                "pcExercise": row['%_of_exercise'],
+                "pcVehicle": row['%_of_vehicle']
+            }
+
+            serializer = CourseSerializer(data=courseObject)
+            if serializer.is_valid():
+                serializer.save()
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         #Cargando Final Exercise a DB
 
@@ -933,8 +894,6 @@ class FilesAPIView(APIView):
             fullname = row['participant']
 
             fulldate = report_df.loc[report_df['fullname'] == fullname]['date'].item()
-
-
 
             finalExercise = {
                 "student": row['participant'],
@@ -962,12 +921,10 @@ class FilesAPIView(APIView):
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-
-
-
+        #Cargando Counts, Report, Slalom_avg and comments
         i = 0
         for index, row in report_df.iterrows():
-            if i > len(data):
+            if i > len(report_df):
                 break
             else:
                 # Define variables for template
@@ -990,7 +947,7 @@ class FilesAPIView(APIView):
                 laovc = int(row['avg_v_control_lc'])  # Missing Variable
                 lfpl = int(row['lnch_max'])
 
-                report = {
+                reportObject = {
                     "student": student,
                     "company": company,
                     "program": program,
@@ -1008,7 +965,13 @@ class FilesAPIView(APIView):
                     "lfpl": lfpl
                 }
 
-                count ={
+                serializer = ReportSerializer(data=reportObject)
+                if serializer.is_valid():
+                    serializer.save()
+                else:
+                    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+                countObject ={
                     "student": student,
                     "company": company,
                     "program": program,
@@ -1028,106 +991,41 @@ class FilesAPIView(APIView):
 
                 }
 
-                serializer0 = CountSerializer(data=count)
+                serializer0 = CountSerializer(data=countObject)
                 if serializer0.is_valid():
                     serializer0.save()
                 else:
                     return Response(serializer0.errors, status=status.HTTP_400_BAD_REQUEST)
 
+                slalomAvgObject = {
+                    "student": student,
+                    "company": company,
+                    "program": program,
+                    "fulldate": fulldate,
+                    "vehiclePcAvgLnCh": slalom_avg.loc[student]['vehicle_pc_avg']['Lane Change'],
+                    "vehiclePcAvgSlalom": slalom_avg.loc[student]['vehicle_pc_avg']['Slalom'],
+                }
 
-                serializer = ReportSerializer(data=report)
-                if serializer.is_valid():
-                    serializer.save()
+                serializer1 = SlalomAvgSerializer(data=slalomAvgObject)
+                if serializer1.is_valid():
+                    serializer1.save()
                 else:
-                    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(serializer1.errors, status=status.HTTP_400_BAD_REQUEST)
 
+                commentsObject = {
+                    "student": student,
+                    "company": company,
+                    "program": program,
+                    "fulldate": fulldate,
+                    "comment": comments.iloc[i]
+                }
+
+                i+=1
+
+                serializer2 = CommentsSerializer(data=commentsObject)
+                if serializer2.is_valid():
+                    serializer2.save()
+                else:
+                    return Response(serializer2.errors, status=status.HTTP_400_BAD_REQUEST)
 
         return Response("Success",status=status.HTTP_200_OK)
-
-class ArticleAPIView(APIView):
-
-    def get(self, request):
-        articles = Article.objects.all()
-        serializer = ArticleSerializer(articles, many=True)
-        return Response(serializer.data)
-
-    def post(self, request):
-        serializer = ArticleSerializer(data=request.data)
-
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-class ArticleDetails(APIView):
-
-    def get_object(self, id):
-        try:
-            return Article.objects.get(id=id)
-
-        except Article.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
-
-    def get(self, request, id):
-        article = self.get_object(id)
-        serializer = ArticleSerializer(article)
-        return Response(serializer.data)
-
-    def put(self, request, id):
-        article = self.get_object(id)
-        serializer = ArticleSerializer(article, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def delete(self, request, id):
-        article = self.get_object(id)
-        article.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-
-
-
-
-
-@api_view(['GET', 'POST'])
-def article_list(request):
-
-    if request.method == 'GET':
-        articles = Article.objects.all()
-        serializer = ArticleSerializer(articles, many=True)
-        return Response(serializer.data)
-
-    elif request.method == 'POST':
-        serializer = ArticleSerializer(data=request.data)
-
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-@api_view(['GET', 'PUT', 'DELETE'])
-def article_detail(request, pk):
-    try:
-        article = Article.objects.get(pk=pk)
-
-    except Article.DoesNotExist:
-        return Response(status=status.HTTP_404_NOT_FOUND)
-
-    if request.method == 'GET':
-        serializer = ArticleSerializer(article)
-        return Response(serializer.data)
-
-    elif request.method == 'PUT':
-        serializer = ArticleSerializer(article, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    elif request.method == 'DELETE':
-        article.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
