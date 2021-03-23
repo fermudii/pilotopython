@@ -120,6 +120,7 @@ class Course(models.Model):
     company = models.CharField(max_length=100)
     program = models.CharField(max_length=100)
     fulldate = models.DateTimeField()
+    exercise = models.CharField(max_length=100)
     pcExercise = models.FloatField()
     pcVehicle = models.FloatField()
 

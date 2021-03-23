@@ -2,7 +2,7 @@ from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.parsers import JSONParser
-from .models import Article, Piloto
+from .models import Article, Piloto,Course
 from .serializers import ArticleSerializer, PilotoSerializer, ReportSerializer, CountSerializer, FinalExerciseSerializer, CommentsSerializer, SlalomAvgSerializer, CourseSerializer
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -14,6 +14,10 @@ from rest_framework.authentication import SessionAuthentication, BasicAuthentica
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import viewsets
 from django.shortcuts import get_object_or_404
+import os
+from django.conf import settings
+
+
 
 
 
@@ -33,6 +37,58 @@ import os
 import time
 from docx2pdf import convert
 # Create your views here.
+
+
+class SlalomPlotView(APIView):
+    def post(self, request):
+        dictionary = request.data
+
+        data = Course.objects.filter(student=dictionary['student'], company=dictionary['company'], fulldate=dictionary['fulldate'], exercise=dictionary['exercise'])
+
+
+        serializer = CourseSerializer(data, many=True)
+
+        if(serializer.data == []):
+            return Response({"message": "No hay data"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+        ax1_slalom_plt = []
+        ax2_slalom_plt = []
+
+        for row in serializer.data:
+
+            ax1_slalom_plt.append(row['pcExercise']*100)
+            ax2_slalom_plt.append(row['pcVehicle']*100)
+
+        # Slalom Graph
+        plt.style.use('seaborn-dark-palette')
+        plt.figure(figsize=(6.5, 2))
+        plt.axhline(y=80, color='#C87867', ls='--', lw=3)
+        plt.annotate('Ideal', (0, 90), ha='center', va='center', fontsize=8, color='#C87867')
+        plt.axhline(y=100, color='#67BEC8', ls='--', lw=3)
+        plt.annotate('Ideal', (0, 110), ha='center', va='center', fontsize=8, color='#67BEC8')
+
+        plt.plot(ax1_slalom_plt, label='% Del Ejercicio', linewidth=3, color='#001EBA')
+        plt.plot(ax2_slalom_plt, label='% Del Vehículo', linewidth=3, color='#BA0000')
+        plt.title('Resultados de ' + dictionary['exercise'] +' - ' + dictionary['student'])
+
+        plt.ylim(ymin=0, ymax=120)
+        plt.legend()
+        plt.xlabel('Runs')
+        plt.ylabel('%')
+        plt.tight_layout()
+
+        plt.savefig('plots/slalomGraph.png', bbox_inches='tight', dpi=100)
+        plt.close()
+
+        with open('plots/slalomGraph.png', 'rb') as f:
+            contents = f.read()
+
+        print("TI toy aqui")
+
+
+        return HttpResponse(contents, content_type='image/png')
 
 
 class FilesAPIView(APIView):
@@ -462,7 +518,6 @@ class FilesAPIView(APIView):
 
         # finalx_df
         counts_df
-        #TODO SAVE COUNTS_DF TO DB
 
 
 
@@ -853,6 +908,24 @@ class FilesAPIView(APIView):
 
         print(comments)
 
+        ax1_slalom_plt = (course_df.loc[
+                              ((course_df['participant'] == 'Student One') &
+                               (course_df['exercise'] == 'Slalom')), '%_of_exercise'
+                          ].astype(float)) * 100
+        ax1_slalom_plt = ax1_slalom_plt.reset_index(drop=True)
+        ax2_slalom_plt = (course_df.loc[
+                              ((course_df['participant'] == 'Student One') &
+                               (course_df['exercise'] == 'Slalom')), '%_of_vehicle'
+                          ].astype(float)) * 100
+        ax2_slalom_plt = ax2_slalom_plt.reset_index(drop=True)
+
+        print(ax1_slalom_plt)
+        print(ax2_slalom_plt)
+        #print(course_df.loc['participant'] == 'Student One')
+
+        #return Response({"message": "Test"}, status=status.HTTP_200_OK)
+
+
         #Cargando % de exercise and vehicle
 
         for index, row in course_df.iterrows():
@@ -876,6 +949,7 @@ class FilesAPIView(APIView):
                 "company": report_df.loc[report_df['fullname'] == fullname]['company'].item(),
                 "program": report_df.loc[report_df['fullname'] == fullname]['program'].item(),
                 "fulldate": fulldate,
+                "exercise": row['exercise'],
                 "pcExercise": row['%_of_exercise'],
                 "pcVehicle": row['%_of_vehicle']
             }
