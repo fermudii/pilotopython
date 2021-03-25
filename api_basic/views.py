@@ -2,8 +2,9 @@ from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.parsers import JSONParser
-from .models import Article, Piloto,Course
-from .serializers import ArticleSerializer, PilotoSerializer, ReportSerializer, CountSerializer, FinalExerciseSerializer, CommentsSerializer, SlalomAvgSerializer, CourseSerializer
+from .models import Article, Piloto, Course, FinalExercise
+from .serializers import ArticleSerializer, PilotoSerializer, ReportSerializer, CountSerializer, \
+    FinalExerciseSerializer, CommentsSerializer, SlalomAvgSerializer, CourseSerializer
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
@@ -17,11 +18,7 @@ from django.shortcuts import get_object_or_404
 import os
 from django.conf import settings
 
-
-
-
-
-#Librerias de piloto
+# Librerias de piloto
 # In[1]:
 import pandas as pd
 import numpy as np
@@ -38,28 +35,186 @@ import time
 from docx2pdf import convert
 # Create your views here.
 
+class FinalExercisePlotView(APIView):
+    def post(self, request):
+        dictionary = request.data
+        student = dictionary['student']
+
+        data = FinalExercise.objects.filter(company=dictionary['company'],
+                                            fulldate=dictionary['fulldate'])
+
+        serializer = FinalExerciseSerializer(data, many=True)
+
+        if not serializer.data:
+            return Response({"message": "No hay data"}, status=status.HTTP_400_BAD_REQUEST)
+
+        finalx_df = pd.DataFrame(serializer.data)
+
+        finalx_df['fTime'] = pd.to_timedelta(finalx_df['fTime']);
+        finalx_df['revSlalom'] = pd.to_timedelta(finalx_df['revSlalom'])
+
+        data_time = finalx_df.loc[finalx_df['student'] == student].fTime.dt.total_seconds()
+        data_time = data_time.reset_index(drop=True)
+        data_performance = finalx_df.loc[finalx_df['student'] == student].finalResult * 100
+        data_performance = data_performance.reset_index(drop=True)
+        data_rv = finalx_df.loc[finalx_df['student'] == student].revSlalom.dt.total_seconds()
+        data_rv = data_rv.reset_index(drop=True)
+        data_tm_fn = data_time - data_rv
+        cones_fn = finalx_df.loc[finalx_df['student'] == student].cones
+        cones_fn = cones_fn.reset_index(drop=True)
+        gates_fn = finalx_df.loc[finalx_df['student'] == student].gates
+        gates_fn = gates_fn.reset_index(drop=True)
+        #xtick = mse_report[student][0]['f_time']
+        cone_img = mpimg.imread('assets/cones_for_reports.png')
+
+        av_rev_result = finalx_df['revSlalom'].mean().total_seconds()
+        av_gp_time = finalx_df['fTime'].mean().total_seconds()
+
+        pass_time = (80 * 1.2)
+
+        passes = data_time.index.tolist()
+        passes.append(2)
+
+        label = finalx_df.loc[finalx_df['student'] == student].stress
+        label = label.reset_index(drop=True).replace(0, "Low Stress").replace(1, 'High Stress')
+
+        imagebox = OffsetImage(cone_img, zoom=0.1)
+
+        fig, ax = plt.subplots(figsize=(8, 3))
+
+        imagebox.image.axes = ax
+
+        data_sx = finalx_df.loc[finalx_df['student'] == student].finalResult.iat[0]
+        min_stdx = 80 - data_sx
+        if min_stdx < 0:
+            min_stdx = 0
+        else:
+            pass
+        data_yx = 100 - (min_stdx + data_sx)
+
+        barHeight = .8
+
+
+
+        #Data necesaria
+        mseg_t_pre = str(finalx_df['fTime'].mean())
+        mseg_t = mseg_t_pre[mseg_t_pre.find(':') + 1: mseg_t_pre.find('.') + 3:]  # mse_group_av_time
+        mseg_c = int((finalx_df['cones'].mean()))  # mse_group_av_cones
+        mseg_g = int((finalx_df['gates'].mean()))  # mse_group_av_gates
+        mseg_perf = int((finalx_df['finalResult'].mean()) * 100)  # mse_group_av_performance
+        mseg_per = int((finalx_df['finalResult'].quantile()) * 100)  # mse_group_av_percentile
+        mse_obj = str(80)[10::]  # mse_objective_obj
+        mseg_rev_pre = str(finalx_df['revSlalom'].mean())  # strings mse_group_used_in_rev
+        mseg_rev = mseg_rev_pre[
+                   mseg_rev_pre.find(':') + 4: mseg_rev_pre.find('.') + 3:]  # strings mse_group_used_in_rev
+        mseg_rev_pc = int(round(((finalx_df['revPc'].mean()) * 100), 0))
+
+        # Average Bar
+        ax.barh('Av', av_rev_result, color='khaki', edgecolor='white', height=.3)
+        ax.barh('Av', av_gp_time - av_rev_result, left=av_rev_result, color='gold', edgecolor='white', height=.3)
+        ax.annotate("""Average: """ + str(mseg_t), (mseg_perf, .3), color='black', va='center', ha='right',
+                    fontsize=8)
+        ax.annotate('Av. Rev: ' + str(mseg_rev), (2, .3), color='black', va='center', ha='left', fontsize=8)
+        ax.annotate(""" Av. Penalties: """ + str(mseg_c) + " | " + str(mseg_g), (mseg_perf - 50, .3), color='black',
+                    fontsize=8, va='center')
+        ax.annotate('Gp. Average ' + str(mseg_perf) + '%', xy=(av_gp_time + .3, 0), xytext=(av_gp_time + 10, 0),
+                    ha='left', fontsize=10,
+                    arrowprops=dict(arrowstyle='->'), va='center')
+
+        td_start, td_stop, td_step = 10, -4, 1
+
+        finalx_df['fTime'] = finalx_df['fTime'].astype(str)
+        finalx_df['fTime'] = finalx_df['fTime'].str.slice(td_start, td_stop, td_step)
+
+        print(finalx_df)
+
+        # Main Bar Legend
+        for i, v in data_tm_fn.items():
+            # Student Bar
+            ax.barh(i + 1, data_rv[i], color='darkred', edgecolor='white', height=barHeight)
+            ax.barh(i + 1, data_tm_fn[i], left=data_rv[i], color='red', edgecolor='white', height=barHeight)
+
+            xtick1 = finalx_df.loc[finalx_df['student'] == student].fTime.iat[i]
+            xtick2 = str(datetime.strptime(xtick1, '%M:%S.%f').time())[4:-4]
+
+            ax.annotate("""Score: """ + xtick2, ((v + data_rv[i]) - 1, i + 1), color='w', fontsize=10,
+                        fontweight='bold', va='center', ha='right')
+            ax.annotate(str(int(data_performance[i])) + '%', ((v + data_rv[i]) + 1, i + 1), color='black',
+                        fontsize=10, fontweight='bold', va='center', ha='left')
+
+            # Acceptable Reverse Annotation
+            ax.annotate('', (.1, i + 1.4), xytext=((data_time[i] * .2), i + 1.4), arrowprops=dict(arrowstyle='|-|'),
+                        va='top')
+            ax.annotate("""Acceptable Reverse""", (.5, 1.5), xytext=(data_time[i] * .21, i + 1.5), va='center',
+                        fontsize=8)
+
+            # Stress Labels
+            if label[i] == "High Stress":
+                label_color = 'orangered'
+            else:
+                label_color = 'yellowgreen'
+            ax.annotate(label[i], ((v + data_rv[i]) + 1, i + .8), ha='left', va='top', fontsize=8,
+                        fontweight='bold', color=(label_color))
+            # Add Penalties
+            ab = AnnotationBbox(imagebox,
+                                (data_rv[i] + 5, i + 1),  # Bar Image
+                                xybox=(0., 0.),
+                                xycoords='data',
+                                boxcoords="offset points",
+                                frameon=False)
+            ax.add_artist(ab)
+            ax.annotate("""Penalties: """ + str(cones_fn[i]) + " | " + str(gates_fn[i]), (data_rv[i] + 9, i + 1),
+                        color='w', fontsize=10, fontweight='bold', va='center')
+
+        for i, v in data_rv.items():
+            ax.annotate("Reverse:\n" + str(round(float(v), 2)), (2, i + 1), color='w', fontsize=10, fontweight='bold',
+                        va='center')  # Reverse Bar Legend
+
+        # Pass or Fail Annotation
+        ax.axvline(pass_time, linestyle='--', ymax=len(passes), color='silver')
+        ax.annotate('Security Driver', xy=(pass_time - 25, len(passes) - .3),
+                    xytext=(pass_time - 1, len(passes) - .3), ha='right', fontsize=10,
+                    arrowprops=dict(arrowstyle='->'), va='center')
+        ax.annotate('Needs More Work', xy=(pass_time + 28, len(passes) - .3),
+                    xytext=(pass_time + 1, len(passes) - .3), fontsize=10,
+                    arrowprops=dict(arrowstyle='->'), va='center')
+
+        ax.set_yticks([])
+        ax.set_xticks([])
+        ax.axis('off')
+
+        fig.tight_layout()
+        plt.xlim(xmin=0, xmax=pass_time + 30)
+        plt.ylim(ymin=-.5, ymax=len(passes))
+        plt.savefig('plots/final_exercise.png', bbox_inches='tight', dpi=100)
+        plt.close()
+
+        with open('plots/final_exercise.png', 'rb') as f:
+            contents = f.read()
+
+        return HttpResponse(contents, content_type='image/png')
+
+
+
 
 class SlalomPlotView(APIView):
     def post(self, request):
         dictionary = request.data
 
-        data = Course.objects.filter(student=dictionary['student'], company=dictionary['company'], fulldate=dictionary['fulldate'], exercise=dictionary['exercise'])
-
+        data = Course.objects.filter(student=dictionary['student'], company=dictionary['company'],
+                                     fulldate=dictionary['fulldate'], exercise=dictionary['exercise'])
 
         serializer = CourseSerializer(data, many=True)
 
-        if(serializer.data == []):
+        if not serializer.data:
             return Response({"message": "No hay data"}, status=status.HTTP_400_BAD_REQUEST)
-
-
 
         ax1_slalom_plt = []
         ax2_slalom_plt = []
 
         for row in serializer.data:
-
-            ax1_slalom_plt.append(row['pcExercise']*100)
-            ax2_slalom_plt.append(row['pcVehicle']*100)
+            ax1_slalom_plt.append(row['pcExercise'] * 100)
+            ax2_slalom_plt.append(row['pcVehicle'] * 100)
 
         # Slalom Graph
         plt.style.use('seaborn-dark-palette')
@@ -71,7 +226,7 @@ class SlalomPlotView(APIView):
 
         plt.plot(ax1_slalom_plt, label='% Del Ejercicio', linewidth=3, color='#001EBA')
         plt.plot(ax2_slalom_plt, label='% Del Vehículo', linewidth=3, color='#BA0000')
-        plt.title('Resultados de ' + dictionary['exercise'] +' - ' + dictionary['student'])
+        plt.title('Resultados de ' + dictionary['exercise'] + ' - ' + dictionary['student'])
 
         plt.ylim(ymin=0, ymax=120)
         plt.legend()
@@ -84,9 +239,6 @@ class SlalomPlotView(APIView):
 
         with open('plots/slalomGraph.png', 'rb') as f:
             contents = f.read()
-
-        print("TI toy aqui")
-
 
         return HttpResponse(contents, content_type='image/png')
 
@@ -137,7 +289,8 @@ class FilesAPIView(APIView):
         raw_runs = pd.read_excel(data_file, sheet_name=("Skill Building"))  # bSkill building
         raw_values = pd.read_excel(data_file, sheet_name=("Course Values"), skiprows=1)
         finalx_df = pd.read_excel(data_file, sheet_name=("Final Exercise"))
-        comments_x = pd.read_excel(data_file, sheet_name=('Instructor Comments')).dropna()  # .set_index('participant', inplace=True)
+        comments_x = pd.read_excel(data_file, sheet_name=(
+            'Instructor Comments')).dropna()  # .set_index('participant', inplace=True)
 
         # In[7]:
 
@@ -151,7 +304,6 @@ class FilesAPIView(APIView):
         # In[9]:
 
         comments = pd.Series(comments_x['comment']).astype(str)
-
 
         # In[10]:
 
@@ -461,10 +613,10 @@ class FilesAPIView(APIView):
         # In[57]:
 
         counts_df = pd.DataFrame(counts_df.replace(0, np.nan)
-                                 .groupby(['participant', 'exercise'])
-                                 .agg(
+            .groupby(['participant', 'exercise'])
+            .agg(
             {'exercise': 'size', '%_of_exercise': ['count', 'mean'], '%_of_vehicle': ['min', 'max']})
-                                 .rename(
+            .rename(
             columns={'size': 'Count', 'count': 'Passed', 'mean': 'Av Score', 'min': 'Start Score',
                      'max': 'End Score'})).unstack(level=1)
         counts_df.columns = counts_df.columns.droplevel(0)
@@ -518,8 +670,6 @@ class FilesAPIView(APIView):
 
         # finalx_df
         counts_df
-
-
 
         # In[66]:
 
@@ -810,7 +960,7 @@ class FilesAPIView(APIView):
         # Versiones en ambos idiomas
         if raw_values.loc[0, 'Country'] == 'MX':
             report_df['vehicle'] = (
-                        raw_values.loc[0, 'Make'] + ' (Capacidad ' + raw_values.loc[0, 'LatAcc'].astype(str) + 'g)')
+                    raw_values.loc[0, 'Make'] + ' (Capacidad ' + raw_values.loc[0, 'LatAcc'].astype(str) + 'g)')
         else:
             report_df['vehicle'] = (
                     raw_values.loc[0, 'Make'] + ' (' + raw_values.loc[0, 'LatAcc'].astype(str) + 'g Capability)')
@@ -921,16 +1071,13 @@ class FilesAPIView(APIView):
 
         print(ax1_slalom_plt)
         print(ax2_slalom_plt)
-        #print(course_df.loc['participant'] == 'Student One')
+        # print(course_df.loc['participant'] == 'Student One')
 
-        #return Response({"message": "Test"}, status=status.HTTP_200_OK)
+        # return Response({"message": "Test"}, status=status.HTTP_200_OK)
 
-
-        #Cargando % de exercise and vehicle
+        # Cargando % de exercise and vehicle
 
         for index, row in course_df.iterrows():
-
-
 
             fullname = row['participant']
 
@@ -940,9 +1087,6 @@ class FilesAPIView(APIView):
                 continue
             else:
                 fulldate = report_df.loc[report_df['fullname'] == fullname]['date'].item()
-
-
-
 
             courseObject = {
                 "student": row['participant'],
@@ -960,8 +1104,7 @@ class FilesAPIView(APIView):
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        #Cargando Final Exercise a DB
-
+        # Cargando Final Exercise a DB
 
         for index, row in finalx_df.iterrows():
 
@@ -987,15 +1130,13 @@ class FilesAPIView(APIView):
             }
             print(finalExercise)
 
-
             serializer = FinalExerciseSerializer(data=finalExercise)
             if serializer.is_valid():
                 serializer.save()
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
-        #Cargando Counts, Report, Slalom_avg and comments
+        # Cargando Counts, Report, Slalom_avg and comments
         i = 0
         for index, row in report_df.iterrows():
             if i > len(report_df):
@@ -1029,7 +1170,7 @@ class FilesAPIView(APIView):
                     "vehicle": vehicle,
                     "snor": snor,
                     "spoce": spoce,
-                    "saoep" : saoep,
+                    "saoep": saoep,
                     "saovc": saovc,
                     "sfpl": sfpl,
                     "lnor": lnor,
@@ -1045,7 +1186,7 @@ class FilesAPIView(APIView):
                 else:
                     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-                countObject ={
+                countObject = {
                     "student": student,
                     "company": company,
                     "program": program,
@@ -1094,7 +1235,7 @@ class FilesAPIView(APIView):
                     "comment": comments.iloc[i]
                 }
 
-                i+=1
+                i += 1
 
                 serializer2 = CommentsSerializer(data=commentsObject)
                 if serializer2.is_valid():
@@ -1102,4 +1243,4 @@ class FilesAPIView(APIView):
                 else:
                     return Response(serializer2.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response("Success",status=status.HTTP_200_OK)
+        return Response("Success", status=status.HTTP_200_OK)
