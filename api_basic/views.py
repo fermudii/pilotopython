@@ -186,7 +186,7 @@ class FinalExercisePlotView(APIView):
         fig.tight_layout()
         plt.xlim(xmin=0, xmax=pass_time + 30)
         plt.ylim(ymin=-.5, ymax=len(passes))
-        plt.savefig('plots/final_exercise.png', bbox_inches='tight', dpi=100)
+        plt.savefig('plots/final_exercise.png', format="png", bbox_inches='tight', dpi=100)
         plt.close()
 
         with open('plots/final_exercise.png', 'rb') as f:
@@ -234,7 +234,7 @@ class SlalomPlotView(APIView):
         plt.ylabel('%')
         plt.tight_layout()
 
-        plt.savefig('plots/slalomGraph.png', bbox_inches='tight', dpi=100)
+        plt.savefig('plots/slalomGraph.png',format="png", bbox_inches='tight', dpi=100)
         plt.close()
 
         with open('plots/slalomGraph.png', 'rb') as f:
