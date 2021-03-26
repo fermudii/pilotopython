@@ -18,6 +18,9 @@ from django.shortcuts import get_object_or_404
 import os
 from django.conf import settings
 
+import base64
+
+
 # Librerias de piloto
 # In[1]:
 import pandas as pd
@@ -192,7 +195,9 @@ class FinalExercisePlotView(APIView):
         with open('plots/final_exercise.png', 'rb') as f:
             contents = f.read()
 
-        return HttpResponse(contents, content_type='image/png')
+        pic_base64 = base64.b64encode(contents);
+
+        return Response({"data": pic_base64},status=status.HTTP_200_OK)
 
 
 
@@ -240,7 +245,9 @@ class SlalomPlotView(APIView):
         with open('plots/slalomGraph.png', 'rb') as f:
             contents = f.read()
 
-        return HttpResponse(contents, content_type='image/png')
+        pic_base64 = base64.b64encode(contents);
+
+        return Response({"data": pic_base64},status=status.HTTP_200_OK)
 
 
 class FilesAPIView(APIView):
