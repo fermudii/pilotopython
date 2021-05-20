@@ -2,9 +2,12 @@ from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.parsers import JSONParser
-from .models import Article, Piloto, Course, FinalExercise
-from .serializers import ArticleSerializer, PilotoSerializer, ReportSerializer, CountSerializer, \
-    FinalExerciseSerializer, CommentsSerializer, SlalomAvgSerializer, CourseSerializer
+#from .models import Article, Piloto, Course, FinalExercise
+from .models import Courses, DataFinalExercise, DataExercises
+from .serializers import CoursesSerializer, DataFinalExerciseSerializer, DataExercisesSerializer
+from .services import *
+#from .serializers import ArticleSerializer, PilotoSerializer, ReportSerializer, CountSerializer, \
+   # FinalExerciseSerializer, CommentsSerializer, SlalomAvgSerializer, CourseSerializer
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
@@ -37,6 +40,77 @@ import os
 import time
 from docx2pdf import convert
 # Create your views here.
+
+
+class DataExercisePCView(APIView):
+    def post(self, request):
+
+        #Obteniendo parametro idCourse and idStudent
+        dictionary = request.data
+        idCourse = dictionary['idCourse']
+        idStudent = dictionary['idStudent']
+
+        dataExercise = DataExercises.objects.filter(idCourse=idCourse)
+
+        exercises = pd.DataFrame(DataExercisesSerializer(dataExercise, many=True).data)
+
+        dataPc = getDataExercisePc(exercises, idCourse, idStudent)
+
+        return Response(dataPc,status=status.HTTP_200_OK)
+
+
+class DataFinalPcView(APIView):
+    def post(self, request):
+
+        #Obteniendo parametro idCourse
+        dictionary= request.data
+        idCourse = dictionary['idCourse']
+
+        #Eliminando data del demo
+        deleteDemoData(idCourse)
+
+        #Verificando que no exista ya el DataExercisePc
+        dataExists = dataFinalExercisePcExists(idCourse)
+        if dataExists:
+            return Response({'messsage': 'Data exists'}, status=status.HTTP_400_BAD_REQUEST)
+
+        #Obteniendo course y dataFinalExercise de base de datos
+        dataCourse = Courses.objects.get(pk=idCourse)
+        dataFinalExercise = DataFinalExercise.objects.filter(idCourse=idCourse)
+
+        #Serializando data
+        course = CoursesSerializer(dataCourse).data
+        finalExercise = pd.DataFrame(DataFinalExerciseSerializer(dataFinalExercise, many=True).data)
+
+        dataPc = getFinalTimeWithPenalties(finalExercise, course)
+
+        dataPc['rev'] = finalExercise.apply(lambda x: round((x['revSlalom'] / x['time']), 2), axis=1)
+        dataPc['cones'] = finalExercise['cones']
+        dataPc['gates'] = finalExercise['gates']
+
+        slalomPc = mse_slalom_pc(finalExercise)
+        dataPc['slalom'] = slalomPc
+
+        laneChangePc = mse_LnCh_pc(finalExercise)
+        dataPc['laneChange'] = laneChangePc
+
+        dataPc['idCourse'] = finalExercise['idCourse']
+        dataPc['idStudent'] = finalExercise['idStudent']
+
+        result = saveDataPc(dataPc)
+
+        if result:
+            PPRCreated = createPPR(idCourse, course['eventDate'])
+            if PPRCreated:
+                return Response({'message': 'OK'}, status=status.HTTP_200_OK)
+            else:
+                return Response({'message': 'PPR not created'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            return Response({'error': 'Something is wrong'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+
 
 class FinalExercisePlotView(APIView):
     def post(self, request):
@@ -1025,6 +1099,9 @@ class FilesAPIView(APIView):
 
         finalx_df.loc[finalx_df['final_result'] < .8]
 
+        print(finalx_df)
+
+
         # In[87]:
 
         report_df['prcnt_lc_pass'].astype(int)
@@ -1078,9 +1155,14 @@ class FilesAPIView(APIView):
 
         print(ax1_slalom_plt)
         print(ax2_slalom_plt)
+
+
+        print(report_df)
+        print(counts_df)
+        print(course_df)
         # print(course_df.loc['participant'] == 'Student One')
 
-        # return Response({"message": "Test"}, status=status.HTTP_200_OK)
+        return Response({"message": "Test"}, status=status.HTTP_200_OK)
 
         # Cargando % de exercise and vehicle
 

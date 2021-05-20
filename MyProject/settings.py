@@ -86,13 +86,13 @@ WSGI_APPLICATION = 'MyProject.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'piloto',
+        'NAME': 'as3',
         'OPTIONS': {
             'init_command': 'SET innodb_strict_mode=1',
         },
-        'USER': 'admin_piloto',
-        'PASSWORD': '$21ePaa5',
-        'HOST': '205.186.160.187',
+        'USER': 'admin_as3',
+        'PASSWORD': 'rh2u8*B9',
+        'HOST': '70.32.96.67',
         'PORT': 3306
     }
 }
