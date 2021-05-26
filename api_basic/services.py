@@ -1,9 +1,13 @@
 import pandas as pd
 import numpy as np
-from .models import Exercises, VehiclesSelected, Vehicles, DataFinalExercisePc, DataFinalExercise, CoursesStudents, PPR, ExercisesSelected
-from .serializers import ExercisesSerializer, ExercisesSelectedSerializer, VehiclesSelectedSerializer, VehiclesSerializer, DataFinalExercisePcSerializer, DataFinalExerciseSerializer, CoursesStudentsSerializer, PPRSerializer
+from .models import Exercises, VehiclesSelected, Vehicles, DataFinalExercisePc, DataFinalExercise, CoursesStudents, PPR, ExercisesSelected, Students, Courses, Venues, FinalExercisesSelected
+from .serializers import ExercisesSerializer, ExercisesSelectedSerializer, VehiclesSelectedSerializer, VehiclesSerializer, DataFinalExercisePcSerializer, DataFinalExerciseSerializer, CoursesStudentsSerializer, PPRSerializer, StudentsSerializer, CoursesSerializer, VenuesSerializer, FinalExercisesSelectedSerializer
 
 
+
+#Constants
+SLALOM_ID = 1
+LANE_CHANGE_ID = 2
 #ID de student DEMO
 demoId = 37
 
@@ -37,10 +41,10 @@ def radius(data):
     rd = (x ** 2) / (8 * y) + (y / 2)
     return rd
 
-def mse_slalom_pc(data):
+def mse_slalom_pc(data, idCourse):
 
-    ex = Exercises.objects.get(name='Slalom')
-    exSerializer = ExercisesSerializer(ex).data
+    ex = FinalExercisesSelected.objects.get(idCourse=idCourse, idExercise=SLALOM_ID)
+    exSerializer = FinalExercisesSelectedSerializer(ex).data
     R = radius(exSerializer)
 
     result = []
@@ -62,10 +66,10 @@ def mse_slalom_pc(data):
     return result
 
 
-def mse_LnCh_pc(data):
+def mse_LnCh_pc(data, idCourse):
 
-    ex = Exercises.objects.get(name='Lane Change')
-    exSerializer = ExercisesSerializer(ex).data
+    ex = FinalExercisesSelected.objects.get(idCourse=idCourse, idExercise=LANE_CHANGE_ID)
+    exSerializer = FinalExercisesSelectedSerializer(ex).data
     R = radius(exSerializer)
 
     result = []
@@ -104,15 +108,18 @@ def deleteDemoData(idCourse):
 
 
 
-def createPPR(idCourse, eventDate):
+def createPPR(idCourse, eventDate, idVenue):
 
     dataPc = DataFinalExercisePc.objects.filter(idCourse=idCourse)
-    print('Data PCCCC',dataPc)
     dataPcSerializer = DataFinalExercisePcSerializer(dataPc, many=True).data
     dataFrame = pd.DataFrame(data=dataPcSerializer)
 
     studentsSelected = CoursesStudents.objects.filter(idCourse=idCourse)
     studentsSelectedSerializer = pd.DataFrame(CoursesStudentsSerializer(studentsSelected, many=True).data)
+
+    venueSerializer = VenuesSerializer(Venues.objects.get(pk=idVenue)).data
+
+
 
     for index, row in studentsSelectedSerializer.iterrows():
 
@@ -140,9 +147,13 @@ def createPPR(idCourse, eventDate):
             ppr_final_result = 0
         student_ppr = ppr_penalties + ppr_slalom + ppr_LnCh + ppr_final_result
 
+        studentSerializer = StudentsSerializer(Students.objects.get(pk=studentId)).data
+
         newPPR = {
             'idCourse': idCourse,
             'idStudent': studentId,
+            'idCompany': studentSerializer['idCompany'],
+            'idCountry': venueSerializer['idCountry'],
             'PPR': student_ppr,
             'runs': student_runs,
             'eventDate': eventDate
@@ -303,8 +314,7 @@ def v_percetage(data):
         vx = row[['v1', 'v2', 'v3']].mean()
         sd = row[['v1', 'v2', 'v3']].std()
         exerciseSelected = ExercisesSelected.objects.get(pk=row['idExerciseSelected'])
-        exercise = Exercises.objects.get(pk=ExercisesSelectedSerializer(exerciseSelected).data['idExercise'])
-        exSerializer = ExercisesSerializer(exercise).data
+        exSerializer = ExercisesSelectedSerializer(exerciseSelected).data
         R = radius(exSerializer)
         v = round(vx, 2)
         LA = ((v ** 2) / (R * 15))

@@ -145,8 +145,6 @@ class Vehicles(models.Model):
 
 class Exercises(models.Model):
     name = models.CharField(max_length=100)
-    chord = models.IntegerField()
-    mo = models.FloatField()
     active = models.BooleanField()
 
 class CoursesStudents(models.Model):
@@ -162,6 +160,14 @@ class VehiclesSelected(models.Model):
 class ExercisesSelected(models.Model):
     idCourse = models.IntegerField()
     idExercise = models.IntegerField()
+    chord = models.IntegerField()
+    mo = models.FloatField()
+
+class FinalExercisesSelected(models.Model):
+    idCourse = models.IntegerField()
+    idExercise = models.IntegerField()
+    chord = models.IntegerField()
+    mo = models.FloatField()
 
 class Comments(models.Model):
     idStudent = models.IntegerField()
@@ -258,9 +264,16 @@ class DataFinalExercisePc(models.Model):
 class PPR(models.Model):
     idCourse = models.IntegerField()
     idStudent = models.IntegerField()
+    idCompany = models.IntegerField()
+    idCountry = models.IntegerField()
     PPR = models.IntegerField()
     runs = models.IntegerField()
     eventDate = models.DateTimeField()
+
+class StudentRecords(models.Model):
+    idStudent = models.IntegerField()
+    idCompany = models.IntegerField()
+    registerDate = models.DateTimeField()
 
 
 

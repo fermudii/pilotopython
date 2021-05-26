@@ -42,6 +42,8 @@ from docx2pdf import convert
 # Create your views here.
 
 
+
+
 class DataExercisePCView(APIView):
     def post(self, request):
 
@@ -88,10 +90,10 @@ class DataFinalPcView(APIView):
         dataPc['cones'] = finalExercise['cones']
         dataPc['gates'] = finalExercise['gates']
 
-        slalomPc = mse_slalom_pc(finalExercise)
+        slalomPc = mse_slalom_pc(finalExercise, idCourse)
         dataPc['slalom'] = slalomPc
 
-        laneChangePc = mse_LnCh_pc(finalExercise)
+        laneChangePc = mse_LnCh_pc(finalExercise, idCourse)
         dataPc['laneChange'] = laneChangePc
 
         dataPc['idCourse'] = finalExercise['idCourse']
@@ -100,7 +102,7 @@ class DataFinalPcView(APIView):
         result = saveDataPc(dataPc)
 
         if result:
-            PPRCreated = createPPR(idCourse, course['eventDate'])
+            PPRCreated = createPPR(idCourse, course['eventDate'], course['idVenue'])
             if PPRCreated:
                 return Response({'message': 'OK'}, status=status.HTTP_200_OK)
             else:

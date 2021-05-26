@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Courses, CoursesStudents, Exercises, ExercisesSelected, VehiclesSelected, Vehicles, Comments, Countries, Venues, Programs, DataExercises, DataFinalExercise, DataFinalExercisePc, PPR
+from .models import Courses, CoursesStudents, Exercises, ExercisesSelected, VehiclesSelected, Vehicles, Comments, Countries, Venues, Programs, DataExercises, DataFinalExercise, DataFinalExercisePc, PPR, StudentRecords, Students, FinalExercisesSelected
 
 #class ArticleSerializer(serializers.ModelSerializer):
 #    class Meta:
@@ -109,6 +109,21 @@ class DataFinalExercisePcSerializer(serializers.ModelSerializer):
 class PPRSerializer(serializers.ModelSerializer):
     class Meta:
         model = PPR
+        fields = '__all__'
+
+class StudentRecordsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StudentRecords
+        fields = '__all__'
+
+class StudentsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Students
+        fields = '__all__'
+
+class FinalExercisesSelectedSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FinalExercisesSelected
         fields = '__all__'
 
 
