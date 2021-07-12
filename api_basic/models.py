@@ -200,6 +200,7 @@ class Users(models.Model):
     active = models.BooleanField()
     emailVerified = models.BooleanField()
     tokenExpired = models.BooleanField()
+    idCountry = models.IntegerField()
 
 class Companies(models.Model):
     name = models.CharField(max_length=100)
